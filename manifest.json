@@ -4,8 +4,7 @@
   "version": "1.0",
   "description": "Highlights a country on a world map when you hover over its name.",
   "permissions": [
-    "activeTab",
-    "storage"
+    "activeTab"
   ],
   "content_scripts": [
     {
@@ -13,13 +12,18 @@
         "<all_urls>"
       ],
       "js": [
-        "countries.js",
+        "country-codes.js",
         "content.js"
       ]
     }
   ],
+  "web_accessible_resources": [
+    {
+      "resources": ["svg/BlankMap-World.svg"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "background": {
     "service_worker": "background.js"
-  },
-  "action": {}
+  }
 }
