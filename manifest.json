@@ -22,8 +22,5 @@
       "resources": ["svg/BlankMap-World.svg"],
       "matches": ["<all_urls>"]
     }
-  ],
-  "background": {
-    "service_worker": "background.js"
-  }
+  ]
 }
