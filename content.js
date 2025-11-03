@@ -55,7 +55,7 @@ function matchCountry(event) {
   return { matchedCountryName, isoCode, popupX, popupY };
 }
 
-function setupSvgHighlighting(svgElement, isoCode, popupX, popupY) {
+function setupSvgHighlighting(svgElement, isoCode, popupX, popupY, isOverviewMap = false, zoomedViewBox = null) {
   svgElement.style.width = '100%';
   svgElement.style.height = '100%';
 
@@ -74,7 +74,7 @@ function setupSvgHighlighting(svgElement, isoCode, popupX, popupY) {
     }
   }
 
-  if (elementsToHighlight.length > 0) {
+  if (!isOverviewMap && elementsToHighlight.length > 0) {
     let bbox;
     if (targetElement.tagName.toLowerCase() === 'g') {
       bbox = targetElement.getBBox();
@@ -111,28 +111,32 @@ function setupSvgHighlighting(svgElement, isoCode, popupX, popupY) {
 
     popup.style.left = `${popupX}px`;
     popup.style.top = `${popupY}px`;
-  } else {
-    // If no country element is found, remove popup and clear highlight
-    if (popup) {
-      popup.remove();
-      popup = null;
-    }
-    if (highlightedGroup) {
-      if (highlightedGroup.tagName.toLowerCase() === 'g') {
-        const paths = highlightedGroup.querySelectorAll('path');
-        paths.forEach(path => {
-          path.style.fill = '';
-          path.style.stroke = '';
-          path.style.strokeWidth = '';
-        });
-      } else if (highlightedGroup.tagName.toLowerCase() === 'path') {
-        highlightedGroup.style.fill = '';
-        highlightedGroup.style.stroke = '';
-        highlightedGroup.style.strokeWidth = '';
-      }
-      highlightedGroup = null;
+    return { minX: viewBoxMinX, minY: viewBoxMinY, width: viewBoxWidth, height: viewBoxHeight };
+  } else if (isOverviewMap && zoomedViewBox) {
+    // For the overview map, draw a bounding box
+    svgElement.setAttribute('viewBox', `0 0 ${originalWidth} ${originalHeight}`); // Show full map
+
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', zoomedViewBox.minX);
+    rect.setAttribute('y', zoomedViewBox.minY);
+    rect.setAttribute('width', zoomedViewBox.width);
+    rect.setAttribute('height', zoomedViewBox.height);
+    rect.setAttribute('fill', 'none');
+    rect.setAttribute('stroke', 'blue');
+    rect.setAttribute('stroke-width', '5');
+    svgElement.appendChild(rect);
+
+    // Highlight the country on the overview map as well
+    if (targetElement) {
+      highlightedGroup = targetElement;
+      elementsToHighlight.forEach(path => {
+        path.style.fill = '#FF0000';
+        path.style.stroke = '#000000';
+        path.style.strokeWidth = '1px';
+      });
     }
   }
+  return null; // Return null if no viewBox was set (e.g., for overview map or no country found)
 }
 
 function displayCountryPopup(matchedCountryName, isoCode, svgData, popupX, popupY) {
@@ -147,25 +151,51 @@ function displayCountryPopup(matchedCountryName, isoCode, svgData, popupX, popup
   popup.style.border = '1px solid black';
   popup.style.padding = '5px';
   popup.style.zIndex = '9999';
-  popup.style.maxWidth = '300px';
+  popup.style.maxWidth = '650px';
   popup.style.height = 'auto';
+  popup.style.display = 'flex';
+  popup.style.flexDirection = 'column';
 
   const countryNameElement = document.createElement('div');
   countryNameElement.textContent = matchedCountryName;
   countryNameElement.style.marginBottom = '5px';
   popup.appendChild(countryNameElement);
 
-  const svgContainer = document.createElement('div');
-  svgContainer.innerHTML = svgData;
-  svgContainer.style.width = '100%';
-  svgContainer.style.height = 'auto';
-  popup.appendChild(svgContainer);
+  const mapsContainer = document.createElement('div');
+  mapsContainer.style.display = 'flex';
+  mapsContainer.style.gap = '10px';
+  popup.appendChild(mapsContainer);
+
+  // Zoomed Map Container
+  const zoomedMapContainer = document.createElement('div');
+  zoomedMapContainer.innerHTML = svgData;
+  zoomedMapContainer.style.width = '300px';
+  zoomedMapContainer.style.height = '300px';
+  zoomedMapContainer.style.border = '1px solid grey';
+  mapsContainer.appendChild(zoomedMapContainer);
+
+  // Overview Map Container
+  const overviewMapContainer = document.createElement('div');
+  overviewMapContainer.innerHTML = svgData;
+  overviewMapContainer.style.width = '300px';
+  overviewMapContainer.style.height = '300px';
+  overviewMapContainer.style.border = '1px solid grey';
+  mapsContainer.appendChild(overviewMapContainer);
 
   document.body.appendChild(popup);
 
-  const svgElement = svgContainer.querySelector('svg');
-  if (svgElement) {
-    setupSvgHighlighting(svgElement, isoCode, popupX, popupY);
+  const zoomedSvgElement = zoomedMapContainer.querySelector('svg');
+  const overviewSvgElement = overviewMapContainer.querySelector('svg');
+
+  if (zoomedSvgElement && overviewSvgElement) {
+    // Setup zoomed map and get its viewBox for the overview map
+    const zoomedViewBox = setupSvgHighlighting(zoomedSvgElement, isoCode, popupX, popupY, false);
+
+    // Setup overview map
+    setupSvgHighlighting(overviewSvgElement, isoCode, popupX, popupY, true, zoomedViewBox);
+
+    popup.style.left = `${popupX}px`;
+    popup.style.top = `${popupY}px`;
   }
 }
 
