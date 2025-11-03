@@ -57,8 +57,6 @@ document.addEventListener('mouseover', (event) => {
     }
   }
 
-  console.log('Matched Country Name:', matchedCountryName); // Debugging
-
   if (matchedCountryName && isoCode && svgData) {
     if (popup) {
       popup.remove();
@@ -94,25 +92,85 @@ document.addEventListener('mouseover', (event) => {
     if (svgElement) {
       svgElement.style.width = '100%';
       svgElement.style.height = '100%';
-      svgElement.setAttribute('viewBox', '0 0 2000 1000'); // Assuming a viewBox, adjust if necessary
-    }
 
-    // Highlight country within the newly added SVG
-    const countryGroup = popup.querySelector(`#${isoCode}`);
-    console.log('Country group element:', countryGroup); // Debugging
+      const originalWidth = parseFloat(svgElement.getAttribute('width')) || 2000;
+      const originalHeight = parseFloat(svgElement.getAttribute('height')) || 1000;
+      const desiredAspectRatio = originalWidth / originalHeight;
 
-    if (countryGroup) {
-      highlightedGroup = countryGroup; // Store the highlighted group
-      const paths = countryGroup.querySelectorAll('path');
-      paths.forEach(path => {
-        path.style.fill = '#FF0000'; // Red highlight
-        path.style.stroke = '#000000';
-        path.style.strokeWidth = '1px';
-      });
+      let targetElement = svgElement.querySelector(`#${isoCode}`);
+      let elementsToHighlight = [];
 
-      // Position the popup near the hovered text
-      popup.style.left = `${popupX}px`;
-      popup.style.top = `${popupY}px`;
+      if (targetElement) {
+        if (targetElement.tagName.toLowerCase() === 'g') {
+          // If it's a group, highlight all its child paths
+          elementsToHighlight = targetElement.querySelectorAll('path');
+        } else if (targetElement.tagName.toLowerCase() === 'path') {
+          // If it's a path, highlight it directly
+          elementsToHighlight = [targetElement];
+        }
+      }
+
+      if (elementsToHighlight.length > 0) {
+        // Calculate bounding box for the entire country (group or single path)
+        let bbox;
+        if (targetElement.tagName.toLowerCase() === 'g') {
+          bbox = targetElement.getBBox();
+        } else { // It's a path
+          bbox = targetElement.getBBox();
+        }
+
+        const padding = 50; // Padding in SVG units
+        let viewBoxMinX = bbox.x - padding;
+        let viewBoxMinY = bbox.y - padding;
+        let viewBoxWidth = bbox.width + 2 * padding;
+        let viewBoxHeight = bbox.height + 2 * padding;
+
+        const currentAspectRatio = viewBoxWidth / viewBoxHeight;
+
+        if (currentAspectRatio > desiredAspectRatio) {
+          const newViewBoxHeight = viewBoxWidth / desiredAspectRatio;
+          viewBoxMinY = bbox.y - (newViewBoxHeight - bbox.height) / 2;
+          viewBoxHeight = newViewBoxHeight;
+        } else if (currentAspectRatio < desiredAspectRatio) {
+          const newViewBoxWidth = viewBoxHeight * desiredAspectRatio;
+          viewBoxMinX = bbox.x - (newViewBoxWidth - bbox.width) / 2;
+          viewBoxWidth = newViewBoxWidth;
+        }
+
+        svgElement.setAttribute('viewBox', `${viewBoxMinX} ${viewBoxMinY} ${viewBoxWidth} ${viewBoxHeight}`);
+
+        highlightedGroup = targetElement; // Store the highlighted element (group or path)
+        elementsToHighlight.forEach(path => {
+          path.style.fill = '#FF0000'; // Red highlight
+          path.style.stroke = '#000000';
+          path.style.strokeWidth = '1px';
+        });
+
+        popup.style.left = `${popupX}px`;
+        popup.style.top = `${popupY}px`;
+      } else {
+        // If no country element is found, remove popup and clear highlight
+        if (popup) {
+          popup.remove();
+          popup = null;
+        }
+        if (highlightedGroup) {
+          // Clear previous highlight if any
+          if (highlightedGroup.tagName.toLowerCase() === 'g') {
+            const paths = highlightedGroup.querySelectorAll('path');
+            paths.forEach(path => {
+              path.style.fill = '';
+              path.style.stroke = '';
+              path.style.strokeWidth = '';
+            });
+          } else if (highlightedGroup.tagName.toLowerCase() === 'path') {
+            highlightedGroup.style.fill = '';
+            highlightedGroup.style.stroke = '';
+            highlightedGroup.style.strokeWidth = '';
+          }
+          highlightedGroup = null;
+        }
+      }
     }
   } else {
     // If no country is matched, ensure any existing popup is removed
@@ -140,12 +198,18 @@ document.addEventListener('mouseout', (event) => {
     popup = null;
   }
   if (highlightedGroup) {
-    const paths = highlightedGroup.querySelectorAll('path');
-    paths.forEach(path => {
-      path.style.fill = ''; // Remove fill
-      path.style.stroke = ''; // Remove stroke
-      path.style.strokeWidth = ''; // Remove stroke width
-    });
+    if (highlightedGroup.tagName.toLowerCase() === 'g') {
+      const paths = highlightedGroup.querySelectorAll('path');
+      paths.forEach(path => {
+        path.style.fill = ''; // Remove fill
+        path.style.stroke = ''; // Remove stroke
+        path.style.strokeWidth = ''; // Remove stroke width
+      });
+    } else if (highlightedGroup.tagName.toLowerCase() === 'path') {
+      highlightedGroup.style.fill = '';
+      highlightedGroup.style.stroke = '';
+      highlightedGroup.style.strokeWidth = '';
+    }
     highlightedGroup = null;
   }
 });
